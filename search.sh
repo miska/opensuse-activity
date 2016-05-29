@@ -2,7 +2,8 @@
 MONTHS_BACK="6"
 BASE_URL="http://lists.opensuse.org/"
 NOW="`date +%Y-%m-%d`"
-KEY="XXX"
+
+source `pwd`/config
 
 get_lists() {
     wget -O - "$BASE_URL" | \
@@ -33,20 +34,31 @@ are_active() {
     for mail in $@; do
         if [ -n "`zgrep -i -m 1 $mail data/*/*.gz`" ]; then
             echo "active"
-            return
+            return 0
         fi
     done
     echo "inactive"
+    return 1
 }
 
 get_mail_dump() {
-    [ -f maildump ] || wget -O - "http://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$KEY" > maildump
+    [ -f maildump ] || ssh $CONNECT_HOST "wget -O - \"http://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$CONNECT_KEY\"" | grep -v '^<' > maildump
 }
 
 get_mboxes
 
 while read ln; do
     USER="`echo "$ln" | sed 's|^\([^\|]*\)\ \|.*|\1|'`"
+    CMAIL="`echo "$ln" | sed 's|^\([^\|]*\)\ \|\ \([^\|]*\)\ .*|\2|'`"
     MAILS="`echo "$ln" | sed 's|.*\|\ \([^\|]*\)$|\1|' | tr ' ' "\n" | sort -u`"
-    echo $USER is `are_active $MAILS`
+    if are_active $MAILS > /dev/null; then
+        echo $USER is active
+        sed -i "/|$CMAIL\$/ d" warnings
+    else
+        echo $USER is inactive
+        if [ -z "`grep "|$USER|" warnings`" ]; then
+            cat 1st-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+            echo "`date +%s`|1|$USER|$CMAIL" >> warnings
+        fi
+    fi
 done < maildump
