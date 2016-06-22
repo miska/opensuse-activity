@@ -2,6 +2,8 @@
 MONTHS_BACK="6"
 BASE_URL="http://lists.opensuse.org/"
 NOW="`date +%Y-%m-%d`"
+FIRST_DATE="`date -d "$MONTHS_BACK months ago" +%s`"
+SEND=""
 
 source `pwd`/config
 
@@ -37,6 +39,16 @@ are_active() {
             return 0
         fi
     done
+    for mail in $@; do
+        grep -Ril "^From: .*$mail.*" mail | while read mail_file; do
+            MAIL_DATE="`sed -n 's|^Date:\ ||p' | head -n 1`"
+	    MAIL_DATE="`date -d "$MAIL_DATE" +%s`"
+            if [ "$MAIL_DATE" -gt "$FIRST_DATE" ]; then
+                echo "active"
+                return 0
+            fi
+        done
+    done
     echo "inactive"
     return 1
 }
@@ -51,14 +63,29 @@ while read ln; do
     USER="`echo "$ln" | sed 's|^\([^\|]*\)\ \|.*|\1|'`"
     CMAIL="`echo "$ln" | sed 's|^\([^\|]*\)\ \|\ \([^\|]*\)\ .*|\2|'`"
     MAILS="`echo "$ln" | sed 's|.*\|\ \([^\|]*\)$|\1|' | tr ' ' "\n" | sort -u`"
+    touch 1st-warnings 2nd-warnings 3rd-warnings
     if are_active $MAILS > /dev/null; then
         echo $USER is active
-        sed -i "/|$CMAIL\$/ d" warnings
+	[ -z "`grep "|$CMAIL\$" 1st-warnings 2nd-warnings 3rd-warnings`" ] || echo $USER was inactive before
+        sed -i "/|$CMAIL\$/ d" 1st-warnings
+        sed -i "/|$CMAIL\$/ d" 2nd-warnings
+        sed -i "/|$CMAIL\$/ d" 3rd-warnings
     else
         echo $USER is inactive
-        if [ -z "`grep "|$USER|" warnings`" ]; then
-            cat 1st-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
-            echo "`date +%s`|1|$USER|$CMAIL" >> warnings
+        if [ -z "`grep "|$USER|" 1st-warnings`" ]; then
+            [ -z "$SEND" ] || cat 1st-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+            echo "`date +%s`|1|$USER|$CMAIL" >> 1st-warnings
+            continue
+        fi
+        if [ -z "`grep "|$USER|" 2nd-warnings`" ]; then
+            [ -z "$SEND" ] || cat 2nd-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+            echo "`date +%s`|1|$USER|$CMAIL" >> 2nd-warnings
+            continue
+        fi
+        if [ -z "`grep "|$USER|" 3rd-warnings`" ]; then
+            [ -z "$SEND" ] || cat 3rd-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+            echo "`date +%s`|1|$USER|$CMAIL" >> 3rd-warnings
+            continue
         fi
     fi
 done < maildump
