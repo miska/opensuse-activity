@@ -54,12 +54,12 @@ get_mboxes() {
 }
 
 last_active() {
-    mkdir cache
+    mkdir -p cache
     if [ -f "cache/$1" ]; then
         ACTIVE_CACHE="`cat "cache/$1"`"
-	LAST_CACHE_ACTIVE="`echo $ACTIVE_CACHE | cut -f 1 -d :`"
-	LAST_CACHE_MAIL_ACTIVE="`echo $ACTIVE_CACHE | cut -f 2 -d :`"
-        if [ $LAST_ACTIVE -gt $FIRST_DATE ] && [ $LAST_ACTIVE -gt $FIRST_DATE ]; then
+	LAST_CACHE_ACTIVE="0`echo $ACTIVE_CACHE | cut -f 1 -d :`"
+	LAST_CACHE_MAIL_ACTIVE="0`echo $ACTIVE_CACHE | cut -f 2 -d :`"
+        if [ $LAST_CACHE_ACTIVE -gt $FIRST_DATE ] && [ $LAST_CACHE_MAIL_ACTIVE -gt $FIRST_DATE ]; then
             echo "$ACTIVE_CACHE"
             return
 	else
