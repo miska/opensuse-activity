@@ -23,13 +23,13 @@ get_lists() {
     sed -n 's|.*style="text-align:left; vertical-align:top;"><a href="\([^"]*\)".*|\1|p'
 }
 kick() {
-    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.del' -d 'login=$1&group_guid=111&api_key=$CONNECT_KEY'&method=api_auth_key" < /dev/null
-    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.add' -d 'login=$1&group_guid=52448&api_key=$CONNECT_KEY'&method=api_auth_key" < /dev/null
+    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.del' -d 'login=$1&group_guid=111&api_key=$CONNECT_KEY'" < /dev/null
+    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.add' -d 'login=$1&group_guid=52448&api_key=$CONNECT_KEY'" < /dev/null
 }
 
 restore() {
-    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.del' -d 'login=$1&group_guid=52448&api_key=$CONNECT_KEY'&method=api_auth_key" < /dev/null
-    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.add' -d 'login=$1&group_guid=111&api_key=$CONNECT_KEY'&method=api_auth_key" < /dev/null
+    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.del' -d 'login=$1&group_guid=52448&api_key=$CONNECT_KEY'" < /dev/null
+    ssh $CONNECT_HOST "curl -H 'Host: connect.opensuse.org' -X POST 'http://127.0.0.1/services/api/rest/xml/?method=connect.user.groups.add' -d 'login=$1&group_guid=111&api_key=$CONNECT_KEY'" < /dev/null
 }
 
 get_mboxes() {
@@ -54,6 +54,18 @@ get_mboxes() {
 }
 
 last_active() {
+    mkdir cache
+    if [ -f "cache/$1" ]; then
+        ACTIVE_CACHE="`cat "cache/$1"`"
+	LAST_CACHE_ACTIVE="`echo $ACTIVE_CACHE | cut -f 1 -d :`"
+	LAST_CACHE_MAIL_ACTIVE="`echo $ACTIVE_CACHE | cut -f 2 -d :`"
+        if [ $LAST_ACTIVE -gt $FIRST_DATE ] && [ $LAST_ACTIVE -gt $FIRST_DATE ]; then
+            echo "$ACTIVE_CACHE"
+            return
+	else
+            rm -f "cache/$1"
+	fi
+    fi
     LAST_ACTIVE="0"
     LAST_MAIL_ACTIVE="0"
     for mail in $@; do
@@ -80,6 +92,7 @@ last_active() {
     	    fi
         done
     done
+    echo $LAST_ACTIVE:$LAST_MAIL_ACTIVE > "cache/$1"
     echo $LAST_ACTIVE:$LAST_MAIL_ACTIVE
 }
 
@@ -133,7 +146,7 @@ while read ln; do
         fi
         LAST="`sed -n "s/|1|$USER|$CMAIL//p" 1st-warnings`"
         LAST="`expr $LAST + $ND_WAR`"
-        if [ $NOW_S -gt $LAST ] && [ -z "`grep "|$USER|" 2nd-warnings`" ]; then
+        if [ $NOW_S -gt $LAST ] && [ -z "`grep "|$USER|" 2nd-warnings`" ] && [ "`grep "|$USER|" 1st-warnings`" ]; then
             if [ -z "$SEND" ]; then
                 echo $USER would get 2nd warning
             else
@@ -144,7 +157,7 @@ while read ln; do
         fi
         LAST="`sed -n "s/|1|$USER|$CMAIL//p" 2nd-warnings`"
         LAST="`expr $LAST + $KICK`"
-        if [ $NOW_S -gt $LAST ] && [ -z "`grep "|$USER|" kicked`" ]; then
+        if [ $NOW_S -gt $LAST ] && [ -z "`grep "|$USER|" kicked`" ] && [ "`grep "|$USER|" 2nd-warnings`" ]; then
             if [ -z "$SEND" ]; then
                 echo $USER would get kicked out
             else
