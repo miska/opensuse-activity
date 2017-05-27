@@ -97,8 +97,8 @@ last_active() {
 }
 
 get_mail_dump() {
-    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$CONNECT_KEY\""   | grep -v '^<' >  maildump
-    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.exmembersadmin.mails&api_key=$CONNECT_KEY\"" | grep -v '^<' >> maildump
+    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.exmembersadmin.mails&api_key=$CONNECT_KEY\"" | grep -v '^<' >   maildump
+    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$CONNECT_KEY\""   | grep -v '^<' >>  maildump
 }
 
 START="`date +%s`"
