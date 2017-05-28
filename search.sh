@@ -53,8 +53,11 @@ get_mboxes() {
 
 last_active() {
     mkdir -p cache
+    LAST_CHECKED_MAIL=0
     if [ -f "cache/$1" ]; then
-        ACTIVE_CACHE="`cat "cache/$1"`"
+        ACTIVE_CACHE="`head -n 1 "cache/$1"`"
+        LAST_CHECKED_MAIL="`tail -n 1 "cache/$1"`"
+	[ "$ACTIVE_CACHE" \!= "$LAST_CHECKED_MAIL" ] || LAST_CHECKED_MAIL=0
 	LAST_CACHE_ACTIVE="0`echo $ACTIVE_CACHE | cut -f 1 -d :`"
 	LAST_CACHE_MAIL_ACTIVE="0`echo $ACTIVE_CACHE | cut -f 2 -d :`"
         if [ $LAST_CACHE_ACTIVE -gt $FIRST_DATE ]; then
@@ -66,6 +69,7 @@ last_active() {
     fi
     LAST_ACTIVE="0"
     LAST_MAIL_ACTIVE="0"
+    NEW_LAST_CHECKED_MAIL="$LAST_CHECKED_MAIL"
     for mail in $@; do
         if expr "x$mail" : x- > /dev/null; then
             continue
@@ -84,13 +88,15 @@ last_active() {
     	    MAIL_DATE="`echo "$i" | sed -n 's|.*\([2-9][0-9][0-9][0-9]\)-\([0-1][0-9]\).mbox.gz|\1-\2-01|p'`"
     	    MAIL_DATE="`date -d "$MAIL_DATE" +%s`"
     	    # First day of month + 31 days
+	    [ "$NEW_LAST_CHECKED_MAIL" -gt "$MAIL_DATE" ] || NEW_LAST_CHECKED_MAIL="$MAIL_DATE"
     	    MAIL_DATE="`expr "$MAIL_DATE" + 2678400`"
-    	    if [ "$MAIL_DATE" -gt "$LAST_ACTIVE" ] && [ -n "`zgrep -i -m 1 "$mail" $i`" ]; then
+    	    if [ "$MAIL_DATE" -gt "$LAST_ACTIVE" ] && [ "$MAIL_DATE" -gt "$LAST_CHECKED_MAIL" ] && [ -n "`zgrep -i -m 1 "$mail" $i`" ]; then
     	        LAST_ACTIVE="$MAIL_DATE"
     	    fi
         done
     done
     echo $LAST_ACTIVE:$LAST_MAIL_ACTIVE > "cache/$1"
+    echo $NEW_LAST_CHECKED_MAIL >> "cache/$1"
     echo $LAST_ACTIVE:$LAST_MAIL_ACTIVE
 }
 
@@ -113,6 +119,7 @@ while read ln; do
     LAST_MAIL_ACTIVE="`echo $LAST_ACTIVE | cut -f 2 -d :`"
     LAST_ACTIVE="`echo $LAST_ACTIVE | cut -f 1 -d :`"
     touch 1st-warnings 2nd-warnings kicked
+    MAILS_TEXT="`for i in $CMAIL $MAILS; do echo " * $i"`"
     if [ $LAST_ACTIVE -gt $FIRST_DATE ]; then
         echo $USER is active
         [ -n "$SEND" ] || continue
@@ -137,7 +144,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get 1st warning
             else
-                cat 1st-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+                cat 1st-warning | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> 1st-warnings
             fi
             continue
@@ -148,7 +155,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get 2nd warning
             else
-                cat 2nd-warning | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+                cat 2nd-warning | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> 2nd-warnings
             fi
             continue
@@ -159,7 +166,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get kicked out
             else
-                cat kick | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
+                cat kick | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> kicked
                 kick "$USER"
             fi
