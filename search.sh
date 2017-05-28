@@ -74,14 +74,15 @@ last_active() {
         if expr "x$mail" : x- > /dev/null; then
             continue
         fi
-	if [ -z "IGNORE_REPLIES" ]; then
+	if [ -z "$IGNORE_REPLIES" ]; then
+            grep -Ril -e "^From:.*$mail.*" -e "^Sender:.*$mail.*" mail | \
             while read mail_file; do
                 MAIL_DATE="`sed -n 's|^Date:\ ||p' "$mail_file" | head -n 1`"
                 MAIL_DATE="`date -d "$MAIL_DATE" +%s`"
                 if [ "$MAIL_DATE" -gt "$LAST_MAIL_ACTIVE" ]; then
                     LAST_MAIL_ACTIVE="$MAIL_DATE"
                 fi
-            done < <(grep -Ril -e "^From:.*$mail.*" -e "^Sender:.*$mail.*" mail)
+            done
         fi
         [ "$LAST_ACTIVE" -gt "$LAST_MAIL_ACTIVE" ] || LAST_ACTIVE="$LAST_MAIL_ACTIVE"
         for i in data/*/*.gz; do
@@ -119,7 +120,7 @@ while read ln; do
     LAST_MAIL_ACTIVE="`echo $LAST_ACTIVE | cut -f 2 -d :`"
     LAST_ACTIVE="`echo $LAST_ACTIVE | cut -f 1 -d :`"
     touch 1st-warnings 2nd-warnings kicked
-    MAILS_TEXT="`for i in $CMAIL $MAILS; do echo " * $i"`"
+    MAILS_TEXT="$CMAIL $MAILS"
     if [ $LAST_ACTIVE -gt $FIRST_DATE ]; then
         echo $USER is active
         [ -n "$SEND" ] || continue
