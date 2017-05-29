@@ -102,8 +102,8 @@ last_active() {
 }
 
 get_mail_dump() {
-    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.exmembersadmin.mails&api_key=$CONNECT_KEY\"" | grep -v '^<' >   maildump
-    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$CONNECT_KEY\""   | grep -v '^<' >>  maildump
+    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.exmembersadmin.mails&api_key=$CONNECT_KEY\"" | grep -v '^<' >  maildump
+    ssh $CONNECT_HOST "wget -O - \"https://connect.opensuse.org/services/api/rest/xml/?method=connect.membersadmin.mails&api_key=$CONNECT_KEY\""   | grep -v '^<' >> maildump
 }
 
 START="`date +%s`"
@@ -120,7 +120,7 @@ while read ln; do
     LAST_MAIL_ACTIVE="`echo $LAST_ACTIVE | cut -f 2 -d :`"
     LAST_ACTIVE="`echo $LAST_ACTIVE | cut -f 1 -d :`"
     touch 1st-warnings 2nd-warnings kicked
-    MAILS_TEXT="$CMAIL $MAILS"
+    MAILS_TEXT="`for i in $CMAIL $MAILS; do echo " * $i"; done`"
     if [ $LAST_ACTIVE -gt $FIRST_DATE ]; then
         echo $USER is active
         [ -n "$SEND" ] || continue
@@ -134,6 +134,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo "User $USER would be restored"
             else
+                echo "Restoring membership"
                 sed -i "/|$CMAIL\$/ d" kicked
                 restore "$USER"
                 cat welcome | sed "s|@nick@|$USER|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
@@ -145,6 +146,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get 1st warning
             else
+                echo "Sending first warning"
                 cat 1st-warning | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> 1st-warnings
             fi
@@ -156,6 +158,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get 2nd warning
             else
+                echo "Sending second warning"
                 cat 2nd-warning | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> 2nd-warnings
             fi
@@ -167,6 +170,7 @@ while read ln; do
             if [ -z "$SEND" ]; then
                 echo $USER would get kicked out
             else
+                echo "Kicking out"
                 cat kick | sed -e "s|@nick@|$USER|g" -e "s|@mails@|$MAILS_TEXT|g" | msmtp -a opensuse-bot -f opensuse-bot@opensuse.org $CMAIL
                 echo "`date +%s`|1|$USER|$CMAIL" >> kicked
                 kick "$USER"
